@@ -1,0 +1,931 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Mapa Interactivo | Inversores Institucionales y Mercado de Valores</title>
+  <style>
+    :root{
+      --bg:#0b1220;
+      --panel:#0f1a2e;
+      --card:#111f38;
+      --text:#e8eefc;
+      --muted:#a9b7d6;
+      --line:rgba(232,238,252,.14);
+      --accent:#6aa7ff;
+      --accent2:#7ef0c1;
+      --warn:#ffcc66;
+      --shadow: 0 18px 45px rgba(0,0,0,.35);
+      --radius:18px;
+    }
+
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Noto Sans", "Liberation Sans", sans-serif;
+      background: radial-gradient(1200px 700px at 20% 10%, rgba(106,167,255,.18), transparent 55%),
+                  radial-gradient(1000px 600px at 85% 35%, rgba(126,240,193,.12), transparent 55%),
+                  linear-gradient(180deg, #070b14, var(--bg));
+      color:var(--text);
+      min-height:100vh;
+      overflow-x:hidden;
+    }
+
+    header{
+      padding: 28px 18px 12px;
+      max-width: 1200px;
+      margin: 0 auto;
+      display:flex;
+      gap:14px;
+      align-items:flex-start;
+      justify-content:space-between;
+      flex-wrap:wrap;
+    }
+
+    .title-wrap{
+      display:flex;
+      gap:12px;
+      align-items:flex-start;
+    }
+
+    .badge{
+      width:44px;height:44px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, rgba(106,167,255,.22), rgba(126,240,193,.14));
+      border:1px solid rgba(255,255,255,.10);
+      display:grid; place-items:center;
+      box-shadow: var(--shadow);
+      flex: 0 0 auto;
+      user-select:none;
+    }
+
+    h1{
+      margin:0;
+      font-size: 18px;
+      letter-spacing:.2px;
+      line-height:1.25;
+    }
+    .sub{
+      margin:6px 0 0;
+      color:var(--muted);
+      font-size: 13px;
+      max-width: 760px;
+    }
+
+    .toolbar{
+      display:flex;
+      gap:10px;
+      align-items:center;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+    }
+
+    .btn{
+      border: 1px solid rgba(255,255,255,.12);
+      background: rgba(15,26,46,.65);
+      color: var(--text);
+      padding: 10px 12px;
+      border-radius: 12px;
+      cursor:pointer;
+      transition: transform .08s ease, border-color .2s ease, background .2s ease;
+      font-size: 13px;
+      user-select:none;
+    }
+    .btn:hover{ transform: translateY(-1px); border-color: rgba(106,167,255,.35); background: rgba(17,31,56,.75); }
+    .btn:active{ transform: translateY(0px); }
+    .btn.primary{
+      border-color: rgba(126,240,193,.35);
+      background: rgba(126,240,193,.12);
+    }
+
+    .container{
+      max-width:1200px;
+      margin: 0 auto;
+      padding: 10px 18px 40px;
+    }
+
+    .legend{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+      justify-content:space-between;
+      margin: 10px 0 16px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .legend .tip{
+      display:flex; gap:10px; align-items:center; flex-wrap:wrap;
+    }
+    .pill{
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(15,26,46,.5);
+      border-radius: 999px;
+      padding: 7px 10px;
+    }
+
+    /* MAP LAYOUT */
+    .map{
+      position:relative;
+      border-radius: var(--radius);
+      background: rgba(15,26,46,.55);
+      border:1px solid rgba(255,255,255,.08);
+      box-shadow: var(--shadow);
+      padding: 18px;
+      overflow:hidden;
+    }
+
+    /* Decorative grid */
+    .map:before{
+      content:"";
+      position:absolute; inset:0;
+      background-image:
+        linear-gradient(to right, rgba(255,255,255,.04) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(255,255,255,.03) 1px, transparent 1px);
+      background-size: 42px 42px;
+      opacity:.5;
+      pointer-events:none;
+    }
+
+    .grid{
+      position:relative;
+      display:grid;
+      gap: 14px;
+      grid-template-columns: 1.15fr 1fr 1fr;
+      align-items:stretch;
+    }
+
+    @media (max-width: 980px){
+      .grid{ grid-template-columns: 1fr; }
+    }
+
+    .center-card{
+      grid-column: 1 / -1;
+      display:flex;
+      gap:14px;
+      align-items:stretch;
+      flex-wrap:wrap;
+    }
+
+    .node{
+      position:relative;
+      border-radius: 16px;
+      background: rgba(17,31,56,.75);
+      border:1px solid rgba(255,255,255,.10);
+      padding: 14px 14px 12px;
+      transition: transform .12s ease, border-color .25s ease, box-shadow .25s ease;
+      cursor:pointer;
+      user-select:none;
+    }
+
+    .node:hover{
+      transform: translateY(-2px);
+      border-color: rgba(106,167,255,.35);
+      box-shadow: 0 16px 40px rgba(0,0,0,.25);
+    }
+
+    .node:focus{
+      outline: 2px solid rgba(106,167,255,.55);
+      outline-offset: 2px;
+    }
+
+    .node .top{
+      display:flex;
+      gap:10px;
+      align-items:flex-start;
+      justify-content:space-between;
+    }
+
+    .node .icon{
+      width:36px; height:36px;
+      border-radius: 12px;
+      display:grid; place-items:center;
+      background: rgba(106,167,255,.12);
+      border:1px solid rgba(106,167,255,.22);
+      flex:0 0 auto;
+      font-size: 18px;
+    }
+    .node.green .icon{
+      background: rgba(126,240,193,.12);
+      border-color: rgba(126,240,193,.25);
+    }
+    .node.warn .icon{
+      background: rgba(255,204,102,.12);
+      border-color: rgba(255,204,102,.22);
+    }
+
+    .node h2{
+      margin:0;
+      font-size: 14px;
+      letter-spacing:.2px;
+      line-height:1.25;
+    }
+    .node p{
+      margin:8px 0 0;
+      color: var(--muted);
+      font-size: 12.5px;
+      line-height:1.35;
+    }
+
+    .node .meta{
+      margin-top:10px;
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      color: var(--muted);
+      font-size: 11.5px;
+    }
+
+    .tag{
+      padding: 5px 8px;
+      border-radius: 999px;
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(15,26,46,.55);
+    }
+
+    .main{
+      flex: 1 1 520px;
+      min-width: 320px;
+    }
+    .side{
+      flex: 1 1 280px;
+      min-width: 260px;
+    }
+
+    .node.center{
+      cursor:pointer;
+      background: linear-gradient(135deg, rgba(106,167,255,.18), rgba(126,240,193,.10));
+      border-color: rgba(255,255,255,.14);
+    }
+
+    .node.center:hover{
+      border-color: rgba(126,240,193,.35);
+    }
+
+    /* MODAL */
+    .overlay{
+      position:fixed;
+      inset:0;
+      background: rgba(0,0,0,.55);
+      backdrop-filter: blur(6px);
+      display:none;
+      align-items:center;
+      justify-content:center;
+      padding: 18px;
+      z-index: 50;
+    }
+    .overlay.show{ display:flex; }
+
+    .modal{
+      width: min(920px, 100%);
+      border-radius: 18px;
+      background: rgba(17,31,56,.92);
+      border:1px solid rgba(255,255,255,.12);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+    }
+    .modal-header{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:12px;
+      padding: 16px 16px 12px;
+      background: rgba(15,26,46,.7);
+      border-bottom: 1px solid rgba(255,255,255,.10);
+    }
+    .modal-title{
+      display:flex;
+      gap:10px;
+      align-items:flex-start;
+    }
+    .modal-title .micon{
+      width:38px;height:38px;
+      border-radius: 12px;
+      display:grid;place-items:center;
+      background: rgba(106,167,255,.14);
+      border:1px solid rgba(106,167,255,.24);
+      font-size: 18px;
+      flex: 0 0 auto;
+      user-select:none;
+    }
+    .modal h3{
+      margin:0;
+      font-size: 15px;
+      line-height:1.25;
+    }
+    .modal .subtitle{
+      margin:6px 0 0;
+      color: var(--muted);
+      font-size: 12.5px;
+      line-height:1.35;
+    }
+
+    .close{
+      background: transparent;
+      border: 1px solid rgba(255,255,255,.14);
+      color: var(--text);
+      border-radius: 12px;
+      padding: 10px 12px;
+      cursor:pointer;
+      font-size: 13px;
+    }
+    .close:hover{ border-color: rgba(255,255,255,.26); }
+
+    .modal-body{
+      padding: 14px 16px 16px;
+      display:grid;
+      grid-template-columns: 1.25fr .85fr;
+      gap: 14px;
+    }
+    @media (max-width: 900px){
+      .modal-body{ grid-template-columns: 1fr; }
+    }
+
+    .panel{
+      border-radius: 16px;
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(15,26,46,.55);
+      padding: 12px;
+    }
+    .panel h4{
+      margin: 0 0 8px;
+      font-size: 13px;
+      letter-spacing:.2px;
+    }
+    .bullets{
+      margin:0;
+      padding-left: 18px;
+      color: var(--muted);
+      font-size: 12.5px;
+      line-height:1.5;
+    }
+    .bullets li{ margin: 6px 0; }
+
+    .resources{
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+    }
+    .link{
+      display:flex;
+      gap:10px;
+      align-items:flex-start;
+      padding: 10px;
+      border-radius: 14px;
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(17,31,56,.55);
+      text-decoration:none;
+      color: var(--text);
+      transition: transform .1s ease, border-color .2s ease;
+    }
+    .link:hover{
+      transform: translateY(-1px);
+      border-color: rgba(106,167,255,.35);
+    }
+    .link .licon{
+      width:30px;height:30px;
+      border-radius: 11px;
+      display:grid;place-items:center;
+      background: rgba(126,240,193,.12);
+      border:1px solid rgba(126,240,193,.22);
+      flex:0 0 auto;
+      user-select:none;
+    }
+    .link .ltitle{ font-size: 12.5px; margin:0; line-height:1.25; }
+    .link .ldesc{ font-size: 11.5px; margin:4px 0 0; color: var(--muted); line-height:1.35; }
+
+    footer{
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 14px 18px 34px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .kbd{
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono","Courier New", monospace;
+      font-size: 11px;
+      padding: 2px 6px;
+      border:1px solid rgba(255,255,255,.14);
+      border-bottom-color: rgba(255,255,255,.10);
+      background: rgba(15,26,46,.65);
+      border-radius: 8px;
+      color: var(--text);
+    }
+
+    /* spotlight for presentation mode */
+    .spotlight{
+      outline: 2px solid rgba(126,240,193,.55);
+      box-shadow: 0 0 0 6px rgba(126,240,193,.12), 0 18px 45px rgba(0,0,0,.35);
+      transform: translateY(-2px);
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <div class="title-wrap">
+      <div class="badge" aria-hidden="true">📊</div>
+      <div>
+        <h1>Mapa conceptual interactivo: rol de los inversores institucionales y su relación con el mercado de valores</h1>
+        <p class="sub">
+          Haz clic en cualquier nodo para abrir un <b>pop-up</b> con definiciones, ejemplos y enlaces (lecturas / videos).
+          Usa <span class="kbd">Esc</span> para cerrar. Ideal para entregar como vínculo (GitHub Pages).
+        </p>
+      </div>
+    </div>
+
+    <div class="toolbar">
+      <button class="btn primary" id="presentBtn">Modo presentación</button>
+      <button class="btn" id="expandAllBtn">Abrir nodo central</button>
+      <button class="btn" id="helpBtn">Cómo entregarlo</button>
+    </div>
+  </header>
+
+  <div class="container">
+    <div class="legend">
+      <div class="tip">
+        <span class="pill">🖱️ Clic = pop-up</span>
+        <span class="pill">🔗 Enlaces externos en recursos</span>
+        <span class="pill">⚠️ Nodo de riesgos/conflictos</span>
+      </div>
+      <div class="pill">Interactividad: pop-ups + enlaces + modo presentación</div>
+    </div>
+
+    <section class="map" aria-label="Mapa conceptual interactivo">
+      <div class="grid">
+        <!-- CENTER ROW -->
+        <div class="center-card">
+          <div class="node center main" tabindex="0"
+               data-node="central"
+               aria-label="Nodo central">
+            <div class="top">
+              <div style="display:flex; gap:10px; align-items:flex-start;">
+                <div class="icon" aria-hidden="true">💼</div>
+                <div>
+                  <h2>Inversores institucionales y su influencia en el mercado de valores</h2>
+                  <p>
+                    Entidades que gestionan grandes volúmenes de capital en nombre de terceros. Su escala
+                    impacta precios, liquidez, gobierno corporativo y prácticas de transparencia.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div class="meta">
+              <span class="tag">Gobierno corporativo</span>
+              <span class="tag">Mercado de valores</span>
+              <span class="tag">Transparencia</span>
+              <span class="tag">Voto e influencia</span>
+            </div>
+          </div>
+
+          <div class="node green side" tabindex="0"
+               data-node="relacion"
+               aria-label="Relación con el mercado de valores">
+            <div class="top">
+              <div style="display:flex; gap:10px; align-items:flex-start;">
+                <div class="icon" aria-hidden="true">🌐</div>
+                <div>
+                  <h2>Relación con el mercado de valores</h2>
+                  <p>
+                    Conectan empresas (emisores) y ahorrantes: asignación de capital, señales al mercado,
+                    y disciplina informativa.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div class="meta">
+              <span class="tag">Capital</span>
+              <span class="tag">Liquidez</span>
+              <span class="tag">Señales</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- ROW 2 -->
+        <div class="node" tabindex="0" data-node="que-son" aria-label="Qué son">
+          <div class="top">
+            <div style="display:flex; gap:10px; align-items:flex-start;">
+              <div class="icon" aria-hidden="true">🏦</div>
+              <div>
+                <h2>Qué son</h2>
+                <p>Tipos de instituciones y por qué su horizonte suele ser de mediano a largo plazo.</p>
+              </div>
+            </div>
+          </div>
+          <div class="meta">
+            <span class="tag">Fondos</span>
+            <span class="tag">Aseguradoras</span>
+            <span class="tag">Gestores</span>
+          </div>
+        </div>
+
+        <div class="node green" tabindex="0" data-node="participacion" aria-label="Participación en el mercado">
+          <div class="top">
+            <div style="display:flex; gap:10px; align-items:flex-start;">
+              <div class="icon" aria-hidden="true">📈</div>
+              <div>
+                <h2>Participación en el mercado</h2>
+                <p>Cómo influyen en precios, liquidez, volatilidad y costo de capital.</p>
+              </div>
+            </div>
+          </div>
+          <div class="meta">
+            <span class="tag">Liquidez</span>
+            <span class="tag">Volatilidad</span>
+            <span class="tag">Costo de capital</span>
+          </div>
+        </div>
+
+        <div class="node" tabindex="0" data-node="gobierno" aria-label="Gobierno corporativo">
+          <div class="top">
+            <div style="display:flex; gap:10px; align-items:flex-start;">
+              <div class="icon" aria-hidden="true">🏛️</div>
+              <div>
+                <h2>Influencia en el gobierno corporativo</h2>
+                <p>Voto, engagement, exigencia de divulgación y mejora de prácticas.</p>
+              </div>
+            </div>
+          </div>
+          <div class="meta">
+            <span class="tag">Voto</span>
+            <span class="tag">Engagement</span>
+            <span class="tag">Divulgación</span>
+          </div>
+        </div>
+
+        <!-- ROW 3 -->
+        <div class="node green" tabindex="0" data-node="beneficios" aria-label="Beneficios">
+          <div class="top">
+            <div style="display:flex; gap:10px; align-items:flex-start;">
+              <div class="icon" aria-hidden="true">⚖️</div>
+              <div>
+                <h2>Beneficios para empresas y mercado</h2>
+                <p>Disciplina, mejor asignación de capital y mayor confianza.</p>
+              </div>
+            </div>
+          </div>
+          <div class="meta">
+            <span class="tag">Confianza</span>
+            <span class="tag">Disciplina</span>
+            <span class="tag">Eficiencia</span>
+          </div>
+        </div>
+
+        <div class="node warn" tabindex="0" data-node="riesgos" aria-label="Riesgos y conflictos">
+          <div class="top">
+            <div style="display:flex; gap:10px; align-items:flex-start;">
+              <div class="icon" aria-hidden="true">⚠️</div>
+              <div>
+                <h2>Riesgos y conflictos potenciales</h2>
+                <p>Conflictos de interés, poder concentrado y presión cortoplacista.</p>
+              </div>
+            </div>
+          </div>
+          <div class="meta">
+            <span class="tag">Conflictos</span>
+            <span class="tag">Concentración</span>
+            <span class="tag">Corto plazo</span>
+          </div>
+        </div>
+
+        <div class="node" tabindex="0" data-node="responsabilidades" aria-label="Responsabilidades">
+          <div class="top">
+            <div style="display:flex; gap:10px; align-items:flex-start;">
+              <div class="icon" aria-hidden="true">✅</div>
+              <div>
+                <h2>Responsabilidades (stewardship)</h2>
+                <p>Deber fiduciario, diligencia, transparencia y voto responsable.</p>
+              </div>
+            </div>
+          </div>
+          <div class="meta">
+            <span class="tag">Fiduciario</span>
+            <span class="tag">Diligencia</span>
+            <span class="tag">Rendición</span>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <footer>
+    <b>Tip:</b> Para que sea “más interactivo”, puedes añadir tus propios recursos locales (PDFs, diapositivas) y enlazarlos
+    desde GitHub. En el modal, busca “Recursos” y agrega enlaces. Cierra con <span class="kbd">Esc</span>.
+  </footer>
+
+  <!-- MODAL -->
+  <div class="overlay" id="overlay" role="dialog" aria-modal="true" aria-label="Detalle del nodo">
+    <div class="modal" role="document">
+      <div class="modal-header">
+        <div class="modal-title">
+          <div class="micon" id="micon" aria-hidden="true">💼</div>
+          <div>
+            <h3 id="mtitle">Título</h3>
+            <p class="subtitle" id="msub">Descripción</p>
+          </div>
+        </div>
+        <button class="close" id="closeBtn" aria-label="Cerrar">Cerrar</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="panel">
+          <h4 id="pTitle">Puntos clave</h4>
+          <ul class="bullets" id="mbullets"></ul>
+        </div>
+
+        <div class="panel">
+          <h4>Recursos (enlaces)</h4>
+          <div class="resources" id="mresources"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Contenido del mapa (puedes editar libremente para personalizarlo)
+    const NODES = {
+      "central": {
+        icon: "💼",
+        title: "Inversores institucionales y su influencia en el mercado de valores",
+        sub: "Grandes gestores de capital que impactan liquidez, precios, divulgación y prácticas de gobierno corporativo.",
+        bullets: [
+          "Gestionan recursos de terceros (aportantes, asegurados, partícipes).",
+          "Influyen en el costo de capital de las empresas al comprar/vender acciones y bonos.",
+          "Ejercen gobernanza mediante voto, diálogo con la empresa y exigencia de transparencia.",
+          "Su comportamiento puede estabilizar el mercado (largo plazo) o aumentar presión por resultados (corto plazo)."
+        ],
+        resources: [
+          { icon:"📘", title:"Institutional Investor (concepto)", desc:"Definición y panorama general (lectura).", url:"https://www.investopedia.com/terms/i/institutionalinvestor.asp" },
+          { icon:"🎥", title:"Mercados de valores (introducción)", desc:"Video introductorio para contextualizar.", url:"https://www.youtube.com/watch?v=0Kf7c4n1Kp8" }
+        ]
+      },
+
+      "relacion": {
+        icon: "🌐",
+        title: "Relación con el mercado de valores",
+        sub: "Conectan ahorro e inversión: aportan profundidad, disciplina informativa y señales sobre riesgo/valor.",
+        bullets: [
+          "Asignación de capital: canalizan recursos hacia empresas con mejores expectativas/riesgo.",
+          "Señales al mercado: sus compras/ventas pueden influir en percepciones y valoraciones.",
+          "Liquidez y formación de precios: mayor facilidad para transar y reflejar información.",
+          "Exigen estándares de divulgación que elevan la calidad del mercado."
+        ],
+        resources: [
+          { icon:"📘", title:"Liquidez de mercado (overview)", desc:"Concepto de liquidez y por qué importa.", url:"https://www.investopedia.com/terms/l/liquidity.asp" },
+          { icon:"🎥", title:"Cómo se forman los precios", desc:"Video corto sobre oferta/demanda en mercados.", url:"https://www.youtube.com/watch?v=5ZVd5N8WvYw" }
+        ]
+      },
+
+      "que-son": {
+        icon: "🏦",
+        title: "Qué son los inversores institucionales",
+        sub: "Instituciones que invierten a gran escala en nombre de beneficiarios o clientes.",
+        bullets: [
+          "Fondos de pensiones: horizonte largo; buscan estabilidad y rentabilidad sostenible.",
+          "Fondos de inversión y gestores: diversificación, administración profesional y control de riesgo.",
+          "Aseguradoras: invierten primas para cubrir obligaciones futuras.",
+          "Bancos y patrimoniales: gestionan portafolios y mandatos de inversión."
+        ],
+        resources: [
+          { icon:"📘", title:"Fondos de pensiones (concepto)", desc:"Qué son y cómo invierten.", url:"https://www.investopedia.com/terms/p/pensionfund.asp" },
+          { icon:"📘", title:"Fondos mutuos / inversión colectiva", desc:"Cómo funcionan los fondos de inversión.", url:"https://www.investopedia.com/terms/m/mutualfund.asp" }
+        ]
+      },
+
+      "participacion": {
+        icon: "📈",
+        title: "Participación en el mercado",
+        sub: "Efectos directos en liquidez, volatilidad, precios y gobierno del emisor.",
+        bullets: [
+          "Provisión de capital: compran acciones/bonos en emisiones y mercado secundario.",
+          "Liquidez: facilitan transacciones con mayor volumen y menor fricción.",
+          "Estabilidad o volatilidad: depende del horizonte y estrategia (pasiva/activa).",
+          "Costo de capital: su demanda puede reducirlo si aumenta confianza y valuación."
+        ],
+        resources: [
+          { icon:"📘", title:"Costo de capital (idea general)", desc:"Por qué importa para empresas y valuación.", url:"https://www.investopedia.com/terms/c/costofcapital.asp" },
+          { icon:"🎥", title:"Mercado primario vs secundario", desc:"Video para diferenciar roles del mercado.", url:"https://www.youtube.com/watch?v=9mV8y2vG6yQ" }
+        ]
+      },
+
+      "gobierno": {
+        icon: "🏛️",
+        title: "Influencia en el gobierno corporativo",
+        sub: "Usan voto y diálogo para exigir transparencia, responsabilidad y decisiones sostenibles.",
+        bullets: [
+          "Voto en juntas: elección de directores, remuneración, políticas clave.",
+          "Engagement: reuniones con dirección/board para discutir estrategia y riesgos.",
+          "Divulgación: presión por reportes claros, oportunos y comparables.",
+          "ESG y sostenibilidad: impulsan gestión de riesgos no financieros y reputación."
+        ],
+        resources: [
+          { icon:"📘", title:"Corporate Governance (visión general)", desc:"Conceptos base de gobierno corporativo.", url:"https://www.investopedia.com/terms/c/corporategovernance.asp" },
+          { icon:"🎥", title:"Qué es ESG", desc:"Video introductorio sobre criterios ESG.", url:"https://www.youtube.com/watch?v=R7yR0a1ZQpQ" }
+        ]
+      },
+
+      "beneficios": {
+        icon: "⚖️",
+        title: "Beneficios para empresas y mercado",
+        sub: "Mejor disciplina, confianza y eficiencia en la asignación del capital.",
+        bullets: [
+          "Disciplina gerencial: mayor supervisión reduce decisiones oportunistas.",
+          "Mejores prácticas: incentivan transparencia, controles y rendición de cuentas.",
+          "Confianza del mercado: más inversionistas se sienten protegidos e informados.",
+          "Eficiencia: capital fluye hacia empresas más sólidas y con mejor gobernanza."
+        ],
+        resources: [
+          { icon:"📘", title:"Asimetría de información", desc:"Por qué la transparencia mejora el mercado.", url:"https://www.investopedia.com/terms/a/asymmetricinformation.asp" },
+          { icon:"🎥", title:"Confianza y mercados", desc:"Video sobre por qué la confianza reduce riesgo.", url:"https://www.youtube.com/watch?v=H1gGqk8p9qk" }
+        ]
+      },
+
+      "riesgos": {
+        icon: "⚠️",
+        title: "Riesgos y conflictos potenciales",
+        sub: "Conflictos de interés y concentración pueden afectar a minoritarios y a la calidad del mercado.",
+        bullets: [
+          "Conflictos agencia: gestor vs beneficiario (comisiones, incentivos, rotación).",
+          "Concentración de poder: influencia excesiva sobre decisiones corporativas.",
+          "Cortoplacismo: presión por resultados trimestrales puede elevar el riesgo.",
+          "Herding (comportamiento manada): entradas/salidas masivas pueden amplificar movimientos."
+        ],
+        resources: [
+          { icon:"📘", title:"Agency Problem (concepto)", desc:"Relación principal–agente en finanzas.", url:"https://www.investopedia.com/terms/a/agencyproblem.asp" },
+          { icon:"🎥", title:"Behavioral finance: efecto manada", desc:"Video corto sobre sesgos y manada.", url:"https://www.youtube.com/watch?v=E8k6sC3c9xA" }
+        ]
+      },
+
+      "responsabilidades": {
+        icon: "✅",
+        title: "Responsabilidades (stewardship)",
+        sub: "La influencia trae deberes: diligencia, transparencia, voto informado y gestión de conflictos.",
+        bullets: [
+          "Deber fiduciario: actuar en el mejor interés de los beneficiarios.",
+          "Diligencia debida: análisis de riesgos, información y decisiones consistentes.",
+          "Transparencia: reportar política de voto, criterios y desempeño.",
+          "Gestión de conflictos: barreras, divulgación y gobernanza interna del gestor."
+        ],
+        resources: [
+          { icon:"📘", title:"Fiduciary duty (concepto)", desc:"Qué implica un deber fiduciario.", url:"https://www.investopedia.com/terms/f/fiduciary.asp" },
+          { icon:"🎥", title:"Qué es el voto responsable", desc:"Video: proxy voting y su impacto.", url:"https://www.youtube.com/watch?v=KcQmYk2uZqA" }
+        ]
+      }
+    };
+
+    const overlay = document.getElementById("overlay");
+    const closeBtn = document.getElementById("closeBtn");
+    const micon = document.getElementById("micon");
+    const mtitle = document.getElementById("mtitle");
+    const msub = document.getElementById("msub");
+    const mbullets = document.getElementById("mbullets");
+    const mresources = document.getElementById("mresources");
+
+    const nodes = Array.from(document.querySelectorAll(".node"));
+
+    function openNode(key){
+      const n = NODES[key];
+      if(!n) return;
+
+      micon.textContent = n.icon;
+      mtitle.textContent = n.title;
+      msub.textContent = n.sub;
+
+      mbullets.innerHTML = "";
+      n.bullets.forEach(b=>{
+        const li = document.createElement("li");
+        li.textContent = b;
+        mbullets.appendChild(li);
+      });
+
+      mresources.innerHTML = "";
+      n.resources.forEach(r=>{
+        const a = document.createElement("a");
+        a.className = "link";
+        a.href = r.url;
+        a.target = "_blank";
+        a.rel = "noopener noreferrer";
+        a.innerHTML = `
+          <div class="licon" aria-hidden="true">${r.icon}</div>
+          <div>
+            <p class="ltitle"><b>${r.title}</b></p>
+            <p class="ldesc">${r.desc}</p>
+          </div>
+        `;
+        mresources.appendChild(a);
+      });
+
+      overlay.classList.add("show");
+    }
+
+    function closeModal(){
+      overlay.classList.remove("show");
+      stopSpotlight();
+    }
+
+    nodes.forEach(el=>{
+      el.addEventListener("click", ()=> openNode(el.dataset.node));
+      el.addEventListener("keydown", (e)=>{
+        if(e.key === "Enter" || e.key === " "){
+          e.preventDefault();
+          openNode(el.dataset.node);
+        }
+      });
+    });
+
+    overlay.addEventListener("click", (e)=>{
+      if(e.target === overlay) closeModal();
+    });
+
+    closeBtn.addEventListener("click", closeModal);
+
+    window.addEventListener("keydown", (e)=>{
+      if(e.key === "Escape") closeModal();
+    });
+
+    // HELP
+    document.getElementById("helpBtn").addEventListener("click", ()=>{
+      openNode("help");
+    });
+
+    // Inject help node (local)
+    NODES["help"] = {
+      icon:"🧩",
+      title:"Cómo entregarlo (GitHub Pages)",
+      sub:"Publica este archivo como una página web y entrega el enlace.",
+      bullets:[
+        "1) Crea un repositorio en GitHub (público).",
+        "2) Sube este archivo con nombre exacto: index.html",
+        "3) Ve a Settings → Pages → Build and deployment: 'Deploy from a branch'",
+        "4) Branch: main / (root) → Save",
+        "5) Espera a que aparezca tu URL (ej: https://usuario.github.io/repositorio/ ) y entrega ese link.",
+        "Tip: si quieres, agrega PDFs o imágenes al repo y enlázalos en la sección 'Recursos'."
+      ],
+      resources:[
+        {icon:"🔗", title:"Guía de GitHub Pages", desc:"Instrucciones oficiales de GitHub Pages.", url:"https://docs.github.com/en/pages/getting-started-with-github-pages/creating-a-github-pages-site"}
+      ]
+    };
+
+    // OPEN CENTRAL QUICK
+    document.getElementById("expandAllBtn").addEventListener("click", ()=> openNode("central"));
+
+    // PRESENTATION MODE (spotlight through nodes)
+    let presenting = false;
+    let idx = 0;
+
+    const presentBtn = document.getElementById("presentBtn");
+
+    function stopSpotlight(){
+      nodes.forEach(n=> n.classList.remove("spotlight"));
+    }
+
+    function spotlight(i){
+      stopSpotlight();
+      const el = nodes[i];
+      if(!el) return;
+      el.classList.add("spotlight");
+      el.scrollIntoView({behavior:"smooth", block:"center", inline:"center"});
+    }
+
+    function startPresentation(){
+      presenting = true;
+      idx = 0;
+      presentBtn.textContent = "Salir presentación";
+      spotlight(idx);
+      // open first node after short delay for effect
+      setTimeout(()=> openNode(nodes[idx].dataset.node), 250);
+    }
+
+    function endPresentation(){
+      presenting = false;
+      presentBtn.textContent = "Modo presentación";
+      stopSpotlight();
+      if(overlay.classList.contains("show")) overlay.classList.remove("show");
+    }
+
+    presentBtn.addEventListener("click", ()=>{
+      if(!presenting) startPresentation();
+      else endPresentation();
+    });
+
+    window.addEventListener("keydown", (e)=>{
+      if(!presenting) return;
+      if(e.key === "ArrowRight" || e.key === "ArrowDown"){
+        e.preventDefault();
+        idx = (idx + 1) % nodes.length;
+        spotlight(idx);
+        openNode(nodes[idx].dataset.node);
+      }
+      if(e.key === "ArrowLeft" || e.key === "ArrowUp"){
+        e.preventDefault();
+        idx = (idx - 1 + nodes.length) % nodes.length;
+        spotlight(idx);
+        openNode(nodes[idx].dataset.node);
+      }
+    });
+  </script>
+</body>
+</html>
